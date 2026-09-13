@@ -15,7 +15,7 @@ import {
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { logger, type ManagerContext } from '@danielsimonjr/memoryjs';
-import { toolDefinitions } from './toolDefinitions.js';
+import { toolDefinitions, toolCategoryMap } from './toolDefinitions.js';
 import { handleToolCall } from './toolHandlers.js';
 
 const require = createRequire(import.meta.url);
@@ -47,11 +47,23 @@ export class MCPServer {
   }
 
   private registerToolHandlers() {
-    // Register list tools handler
+    // Register list tools handler with category gating
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
-      return {
-        tools: toolDefinitions,
-      };
+      const categories = (process.env.MEMORY_TOOL_CATEGORIES || '')
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean);
+      if (categories.length === 0 || categories.includes('all')) {
+        return { tools: toolDefinitions };
+      }
+      const allowedNames = new Set<string>();
+      for (const cat of categories) {
+        const tools = toolCategoryMap[cat];
+        if (tools) {
+          for (const name of tools) allowedNames.add(name);
+        }
+      }
+      return { tools: toolDefinitions.filter(t => allowedNames.has(t.name)) };
     });
 
     // Register call tool handler

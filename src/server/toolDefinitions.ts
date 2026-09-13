@@ -3693,3 +3693,23 @@ export const toolDefinitions: ToolDefinition[] = [
 // - Analytics: get_graph_stats, validate_graph
 // - Compression: find_duplicates, merge_entities, compress_graph, archive_entities
 // - Import/Export: import_graph, export_graph
+
+/**
+ * Tool category map for gating. Each category key maps to the tool names
+ * that belong to that category. Set MEMORY_TOOL_CATEGORIES=entity,relation,...
+ * to register only those categories. Omit or set to "all" for all 241 tools.
+ */
+export const toolCategoryMap: Record<string, string[]> = {
+  entity: ['create_entities', 'delete_entities', 'read_graph', 'open_nodes'],
+  relation: ['create_relations', 'delete_relations'],
+  observation: ['add_observations', 'delete_observations'],
+  search: ['search_nodes'],
+  search_ranked: ['search_nodes_ranked'],
+  search_boolean: ['boolean_search'],
+  search_fuzzy: ['fuzzy_search'],
+  freshness: ['check_freshness', 'get_stale_entities', 'freshness_report'],
+  analytics: ['get_graph_stats', 'validate_graph'],
+  compression: ['find_duplicates', 'merge_entities'],
+  io: ['export_graph', 'import_graph'],
+  versioning: ['get_entity_versions', 'get_version_chain'],
+};
