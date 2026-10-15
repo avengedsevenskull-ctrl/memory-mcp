@@ -83,6 +83,7 @@ import { promises as fs } from 'node:fs';
 import { performance } from 'node:perf_hooks';
 import { z } from 'zod';
 import { maybeCompressResponse } from './responseCompressor.js';
+import { getFreshnessState, isStale } from '../freshness-guard.js';
 
 // ==================== SINGLETON INFRASTRUCTURE ====================
 // WeakMap-based singletons keyed on ManagerContext to avoid re-instantiation per request.
@@ -3013,7 +3014,28 @@ export const toolHandlers: Record<string, ToolHandler> = {
       exists = true;
       sizeBytes = stat.size;
     } catch { /* file may not exist yet */ }
-    const stats = await ctx.analyticsManager.getGraphStats();
+    // Guarded read: detects external writes, reloads when needed, and records
+    // the check in the freshness state — so the `freshness` block below reports
+    // reality as of NOW, not as of process start.
+    let loadError: string | null = null;
+    try {
+      await ctx.storage.loadGraph();
+    } catch (e) {
+      loadError = e instanceof Error ? e.message : String(e);
+    }
+    // Statistics are best-effort too: a corrupt store must degrade to a report
+    // (with statsError) rather than reject the diagnostic call.
+    let stats: { totalEntities: number; totalRelations: number } | null = null;
+    let statsError: string | null = null;
+    try {
+      stats = await ctx.analyticsManager.getGraphStats();
+    } catch (e) {
+      statsError = e instanceof Error ? e.message : String(e);
+    }
+    const fresh = getFreshnessState(ctx.storage);
+    const staleCheck = fresh ? await isStale(ctx.storage) : null;
+    const iso = (t: number | null | undefined): string | null =>
+      typeof t === 'number' ? new Date(t).toISOString() : null;
     return formatToolResponse({
       runtime: { node: process.version, platform: process.platform, arch: process.arch, pid: process.pid },
       storage: {
@@ -3024,10 +3046,30 @@ export const toolHandlers: Record<string, ToolHandler> = {
         type: process.env.MEMORY_STORAGE_TYPE === 'sqlite' ? 'sqlite' : 'jsonl',
         exists,
         sizeBytes,
-        entities: stats.totalEntities,
-        relations: stats.totalRelations,
+        entities: stats ? stats.totalEntities : null,
+        relations: stats ? stats.totalRelations : null,
       },
-      loadedAt: new Date().toISOString(),
+      // Real load metadata. The old value was `new Date()` at call time — it
+      // reported when diag ran, not when the in-memory graph was last loaded.
+      loadedAt: iso(fresh?.lastLoadAt) ?? new Date().toISOString(),
+      freshness: fresh
+        ? {
+            guarded: true,
+            filePath: fresh.filePath,
+            fileMtime: staleCheck?.fileMtimeMs != null ? new Date(staleCheck.fileMtimeMs).toISOString() : null,
+            stale: staleCheck?.stale ?? null,
+            lastCheckAt: iso(fresh.lastCheckAt),
+            lastLoadAt: iso(fresh.lastLoadAt),
+            lastReloadAt: iso(fresh.lastReloadAt),
+            lastWriteAt: iso(fresh.lastWriteAt),
+            checks: fresh.checks,
+            loads: fresh.loads,
+            reloads: fresh.reloads,
+            statErrors: fresh.statErrors,
+          }
+        : { guarded: false },
+      ...(loadError !== null ? { loadError } : {}),
+      ...(statsError !== null ? { statsError } : {}),
     });
   },
 

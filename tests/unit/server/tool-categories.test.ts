@@ -16,7 +16,7 @@ import { toolDefinitions, toolCategoryMap } from '../../../src/server/toolDefini
 const deploymentCategories = [
   'entity', 'relation', 'observation', 'search', 'search_ranked',
   'search_boolean', 'search_fuzzy', 'freshness', 'analytics', 'versioning',
-  'compression', 'io', 'rbac',
+  'compression', 'io', 'rbac', 'diagnostics',
 ];
 
 describe('toolCategoryMap', () => {
@@ -32,6 +32,13 @@ describe('toolCategoryMap', () => {
 
   it('relation category exposes entity_neighbors (one-hop traversal)', () => {
     expect(toolCategoryMap.relation).toContain('entity_neighbors');
+  });
+
+  it('diagnostics category exposes the freshness/health surface (diag + health)', () => {
+    // Freshness guard (retro 2026-10-15): agents must be able to detect a stale
+    // or unguarded memory server — `diag` reports load metadata + file mtime/stale.
+    expect(toolCategoryMap.diagnostics).toContain('diag');
+    expect(toolCategoryMap.diagnostics).toContain('health');
   });
 
   it('categories named in the deployment env resolve in the map', () => {

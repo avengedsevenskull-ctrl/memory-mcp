@@ -3712,4 +3712,9 @@ export const toolCategoryMap: Record<string, string[]> = {
   compression: ['find_duplicates', 'merge_entities'],
   io: ['export_graph', 'import_graph'],
   versioning: ['get_entity_versions', 'get_version_chain'],
+  // Read-only runtime diagnostics. `diag` reports pid + real load metadata +
+  // file mtime/stale (freshness guard); `health` runs integrity checks. Exposed
+  // so an agent can tell whether its memory server is seeing current data
+  // (staleness failure class, retro 2026-10-15).
+  diagnostics: ['diag', 'health'],
 };

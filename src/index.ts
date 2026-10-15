@@ -46,9 +46,15 @@ import {
   type DistilledLesson,
 } from '@danielsimonjr/memoryjs';
 import { MCPServer } from './server/MCPServer.js';
+import { installFreshnessGuard } from './freshness-guard.js';
 
 // Re-export path utilities for backward compatibility
 export { defaultMemoryPath, ensureMemoryFilePath };
+
+// Reload-on-read guard (opencode retro 2026-10-15, finding F1). Long-lived
+// servers must see writes made by *other* processes; see freshness-guard.ts.
+export { installFreshnessGuard, getFreshnessState, isStale } from './freshness-guard.js';
+export type { FreshnessState } from './freshness-guard.js';
 
 // Re-export types for backward compatibility
 export type {
@@ -116,6 +122,15 @@ async function main() {
     storagePath: memoryFilePath,
     storageType,
   });
+
+  // Reload-on-read for the JSONL backend: without it, a long-lived server never
+  // observes writes made by another process (fresh session, one-shot CLI, a
+  // second opencode instance) — the staleness failure diagnosed 2026-10-15.
+  // The guard refreshes the in-memory cache when the file's stamp changes.
+  // Non-JSONL backends are skipped deliberately (their cache model differs).
+  if (storageType === "jsonl") {
+    installFreshnessGuard(managerContext.storage, memoryFilePath);
+  }
 
   // Initialize and start MCP server
   const server = new MCPServer(managerContext);
