@@ -3701,7 +3701,7 @@ export const toolDefinitions: ToolDefinition[] = [
  */
 export const toolCategoryMap: Record<string, string[]> = {
   entity: ['create_entities', 'delete_entities', 'read_graph', 'open_nodes'],
-  relation: ['create_relations', 'delete_relations'],
+  relation: ['create_relations', 'delete_relations', 'entity_neighbors'],
   observation: ['add_observations', 'delete_observations'],
   search: ['search_nodes'],
   search_ranked: ['search_nodes_ranked'],
